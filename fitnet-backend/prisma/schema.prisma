@@ -1,0 +1,108 @@
+// fitnet-backend/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  avatarUrl    String?  @map("avatar_url")
+  bio          String?  @db.Text
+  role         Role     @default(USER)
+  isPublic     Boolean  @default(true) @map("is_public")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  posts        Post[]
+  likes        Like[]
+  comments     Comment[]
+  followers    Follow[] @relation("follower")
+  following    Follow[] @relation("following")
+
+  @@map("users")
+}
+
+model Post {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  description String?   @db.Text
+  videoUrl    String    @map("video_url")
+  thumbnailUrl String?  @map("thumbnail_url")
+  aiTags      String[]  @map("ai_tags")
+  status      PostStatus @default(PENDING)
+  likesCount  Int       @default(0) @map("likes_count")
+  commentsCount Int     @default(0) @map("comments_count")
+  isPublic    Boolean   @default(true) @map("is_public")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user        User      @relation(fields: [userId], references: [id])
+  likes       Like[]
+  comments    Comment[]
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("posts")
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  postId    Int      @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("likes")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  postId    Int      @map("post_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
+
+  @@index([postId])
+  @@map("comments")
+}
+
+model Follow {
+  id         Int      @id @default(autoincrement())
+  followerId Int      @map("follower_id")
+  followedId Int      @map("followed_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  follower   User     @relation("follower", fields: [followerId], references: [id])
+  following  User     @relation("following", fields: [followedId], references: [id])
+
+  @@unique([followerId, followedId])
+  @@map("followers")
+}
+
+enum Role {
+  USER
+  TRAINER
+  ADMIN
+}
+
+enum PostStatus {
+  PENDING
+  PROCESSING
+  ACTIVE
+  REJECTED
+}
